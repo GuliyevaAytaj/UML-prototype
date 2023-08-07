@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>UML</title>
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/style.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+
+</head>
+<body>
+  <header>
+    <div class="images">
+      <div class="header-item">
+        <img src="/images/ellipse.svg" type="USE_CASE" class="draggable-images" alt="ellipse" draggable="true">
+        <span>Use case</span>
+      </div>
+      <div class="header-item">
+        <img src="/images/actor.svg" type="ACTOR" class="draggable-images" alt="actor" draggable="true">
+        <span>Actor</span>
+      </div>
+      <div class="header-item">
+        <img src="/images/arrow_big.svg" type="GENERALIZATION" class="draggable-images" alt="arrow_big" draggable="true">
+        <span>Generalization</span>
+      </div>
+      <div class="header-item">
+        <img src="/images/line.svg" type="ASSOCIATION" class="draggable-images" alt="line" draggable="true">
+        <span>Association</span>
+      </div>
+      <div class="header-item">
+        <img src="/images/arrow.svg" type="INCLUDE" class="draggable-images" alt="line_dashed" draggable="true">
+        <span>Include</span>
+      </div>
+      <div class="header-item">
+        <img src="/images/arrow.svg" type="EXTEND" class="draggable-images" alt="arrow" draggable="true">
+        <span>Extend</span>
+      </div>
+      <div class="header-item">
+        <img src="/images/box.svg" type="SYSTEM" class="draggable-images" alt="box" draggable="true">
+        <span>System</span>
+      </div>
+    </div>
+    <div class="controllers">
+      <p onclick="exportGroup()">Save</p>
+      <button class="download" onclick="downloadXml()">Download XML</button>
+    </div>
+  </header>
+
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-2">
+        <div class="left-side">
+          <ul class="menu"></ul>
+          <ul class="menu mt-4">
+            <li class="open">My UML use case diagrams            <ul class="saved-diagrams dropdown"></ul></li>
+          </ul>
+          <div class="left-side-categories"></div>
+        </div>
+      </div>
+      <div class="col-md-8">
+        <svg id="svgContainer" height="100%" width="100%"></svg>
+      </div>
+      <div class="col-md-2">
+        <div class="right-side" id="rightSide"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="contextMenu" class="hidden">
+    <ul>
+      <button type="button" data-toggle="modal" data-target="#diagramModal">Connect diagram</button>
+    </ul>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="diagramModal" tabindex="-1" role="dialog" aria-labelledby="diagramModal" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="exampleModalLongTitle">Choose diagram</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/libs/snap.svg-min.js"
+          crossorigin="anonymous"
+          referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js"></script>
+  <script src="js/constants.js"></script>
+  <script src="js/index.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,176 @@
+#svgContainer {
+    width: 100%;
+    height: calc(100vh - 80px);
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+}
+
+header {
+    height: auto;
+    background-color: #F7F7F7;
+    display: flex;
+    padding: 0 20px;
+    justify-content: space-between;
+}
+
+header .header-item {
+    display: inline-flex;
+    flex-direction: column;
+    padding: 5px 20px;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+header .header-item img {
+    margin-bottom: 20px;
+    align-content: center;
+}
+
+header .header-item img {
+    cursor: move;
+    display: block;
+}
+
+.left-side {
+    height: 100%;
+    border-right: 1px solid rgba(0, 0, 0, 0.6);
+}
+
+.right-side {
+    border-left: 1px solid rgba(0, 0, 0, 0.6);
+    height: 100%;
+}
+
+.right-side p {
+    margin: 10px 5px 0;
+    text-align: left;
+    padding: 0;
+}
+
+.category {
+    text-align: center;
+    padding: 20px;
+    cursor: pointer;
+}
+
+.right-side button {
+    margin-top: 10px;
+    border: none;
+    width: 100%;
+}
+
+.images {
+    display: flex;
+}
+
+.controllers {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.controllers p {
+    margin: 0;
+    padding: 0;
+    cursor: pointer;
+}
+
+.download {
+    background-color: #000000;
+    margin-left: 20px;
+    border: none;
+    height: 40px;
+    color: white;
+    cursor: pointer;
+}
+
+.context-menu {
+    position: absolute;
+    width: 140px;
+    background-color: #222222;
+}
+
+.context-menu ul {
+    padding: 0;
+    margin: 0;
+}
+
+.context-menu ul p {
+    width: 100%;
+    margin: 0;
+    text-align: center;
+    padding: 5px 10px;
+    color: #F7F7F7;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.context-menu ul p:hover {
+    background-color: #4577A4;
+}
+
+.menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.menu li {
+    display: block;
+    margin-right: 20px;
+    position: relative;
+    cursor: pointer;
+}
+
+.menu > li:before {
+    content: '↓ ';
+}
+
+.menu > li.open:before {
+    content: '↑ ';
+}
+
+.dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: #f9f9f9;
+    border: 1px solid #ccc;
+    padding: 10px;
+    list-style: none;
+}
+
+.menu li.open .dropdown {
+    display: block;
+}
+
+#contextMenu {
+    position: absolute;
+    background-color: #f0f0f0;
+    border: 1px solid #ccc;
+    box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+    display: block;
+}
+
+#contextMenu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#contextMenu li {
+    padding: 8px 12px;
+    cursor: pointer;
+}
+
+#contextMenu li:hover {
+    background-color: #ddd;
+}
+
+.hidden {
+    display: none !important;
+}
