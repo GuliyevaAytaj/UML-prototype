@@ -70,8 +70,10 @@
   </div>
 
   <div id="contextMenu" class="hidden">
-    <ul>
+    <ul style="display: flex;flex-direction: column">
       <button type="button" data-toggle="modal" data-target="#diagramModal">Connect diagram</button>
+      <button type="button" onclick="toFront()">To Front</button>
+      <button type="button" onclick="toBack()">To Back</button>
     </ul>
   </div>
 

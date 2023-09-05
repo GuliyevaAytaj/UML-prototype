@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/aytac-schema.iml" filepath="$PROJECT_DIR$/.idea/aytac-schema.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../Projects/ReactProjects/azertelecom/.idea/azertelecom.iml" filepath="$PROJECT_DIR$/../Projects/ReactProjects/azertelecom/.idea/azertelecom.iml" />
       <module fileurl="file://$PROJECT_DIR$/../Projects/ReactProjects/billing-web/.idea/billing-web.iml" filepath="$PROJECT_DIR$/../Projects/ReactProjects/billing-web/.idea/billing-web.iml" />
     </modules>
   </component>

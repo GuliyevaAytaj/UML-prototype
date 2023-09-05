@@ -4,28 +4,22 @@ const contextMenu = document.getElementById("contextMenu");
 const svg = Snap("#svgContainer");
 let currentDragItem;
 let groupSvg = svg.group().attr({
-    name: 'Diagram'
+    name: 'Diagram',
+    type: 'main'
 });
 let id = 1;
 let selectedItem, selectedLine;
 let contextItem;
 let dashedLine;
-let details;
 let diagrams = [];
 let relationShips = [];
-let selectedElements = [];
 let resizeHandle, rotateHandle;
 let parsedXml;
-let connectedElement;
 let selectedArrow = imageType.ASSOCIATION;
-
 let isDragging = false;
 let startAngle = 0;
 let startRotation = 0;
-
 let scaleFactor = 1;
-
-var startX, startY;
 let centerX, centerY;
 const textPosition = {
     x: 0,
@@ -41,21 +35,9 @@ const menuItems = document.querySelectorAll('.menu li');
 
 menuItems.forEach((item) => {
     item.addEventListener('click', () => {
-        // Toggle the 'active' class to show/hide the dropdown
         item.classList.toggle('active');
     });
 });
-
-function calculateRotation(x1, y1, x2, y2) {
-    const deltaX = x2 - x1;
-    const deltaY = y2 - y1;
-
-    // Calculate the rotation angle in radians
-    const angleRadians = Math.atan2(deltaY, deltaX);
-
-    // Convert radians to degrees
-    return Snap.deg(angleRadians);
-}
 
 function reDrawLines(){
     relationShips = relationShips.filter((v) => v.line.removed !== true);
@@ -64,13 +46,12 @@ function reDrawLines(){
         if(v.text){
             v.text.remove();
         }
-        // text.remove();
         if(v.arrowhead) {
             v.arrowhead.remove()
         }
-        const bbox1 = v.from.getBBox();
-        const bbox2 = v.to.getBBox();
 
+        let bbox1 = v.from.getBBox();
+        let bbox2 = v.to.getBBox();
         let center1;
         let center2;
 
@@ -80,38 +61,31 @@ function reDrawLines(){
         center1 = getElementPoint(image1.attr('type'), bbox1);
         center2 = getElementPoint(image2.attr('type'), bbox2);
 
-        let lineType = v.line.attr('lineType') ? v.line.attr('lineType') : v.lineType;
-        console.log('lineType', lineType);
+        let lineType = v.lineType ? v.lineType : v.line.attr('lineType');
         let text = null;
         const line = svg.line(center1.x, center1.y,
             parseFloat(center2.x),
             parseFloat(center2.y));
 
-        const angle = getRotationAngle(center1.x, center1.y, center2.x, center2.y);
         if (v.text && [imageType.INCLUDE, imageType.EXTEND].includes(lineType)){
              text = svg.text(
-                 ((center1.x + center2.x) / 2) - 30,
-                angle < 12 || angle > -12 ?
-                    ((center1.y + center2.y) / 2) - 15 : ((center1.y + center2.y) / 2),
+                 ((center1.x + center2.x) / 2) - 30, ((center1.y + center2.y) / 2) -10,
                 lineType === imageType.INCLUDE ? '<<include>>' : '<<extent>>'
             );
-            text.attr({
-                transform: `r${angle}`
-            });
         }
 
         line.attr({
             lineType: lineType ?? selectedArrow,
             text: lineType === imageType.INCLUDE ? '<<include>>' : '<<extent>>'
         });
-        // "M0,0 L10,5 L0,10"
+
         let arrowheadPath = "M0,0 L15,5 L0,13Z";
         let strokeDasharray = v.line.attr('strokeDasharray') ? v.line.attr('strokeDasharray') : null;
         let arrowhead = null;
 
         if(v.arrowhead){
             const arrowheadCenterX = parseFloat(center2.x) - 10;
-            const arrowheadCenterY = parseFloat(center2.y) - 10;
+            const arrowheadCenterY = parseFloat(center2.y) - 8;
             const isDashed = [imageType.INCLUDE, imageType.EXTEND].includes(lineType);
             arrowhead = svg.path(isDashed ? "M2,0 L15,7 L0,13" : arrowheadPath).attr({
                 fill: "none",
@@ -122,34 +96,70 @@ function reDrawLines(){
                     line.attr("x2") - line.attr("x1")))} 5 5)`
             });
         }
+
         line.attr({
             stroke: "black",
             strokeWidth: 2,
             strokeDasharray: [
                 imageType.INCLUDE,
                 imageType.EXTEND
-            ].includes(v.line.attr('lineType')) ? '5.3' : null
+            ].includes(lineType) ? '5.3' : null
         });
+
+        if (image1.attr('type') === imageType.USE_CASE || image2.attr('type') === imageType.USE_CASE){
+            const elements = [image1, image2];
+            const useCases = elements.filter((v) => v.attr('type') === imageType.USE_CASE);
+            let a;
+            useCases.forEach((useCase) => {
+                const bbox = useCase.parent().getBBox();
+                const angleInDegrees = Snap.deg(Math.atan2(line.attr("y2") - line.attr("y1"),
+                    line.attr("x2") - line.attr("x1")));
+                if (
+                    (parseFloat(line.attr('x1')) + (bbox.width / 2)) < parseFloat(line.attr('x2'))
+                ){
+                    if(useCase.parent().id === v.from.id){
+                        let x1 = parseFloat(line.attr('x1')) + bbox.width;
+                        let y1 = bbox.cy;
+                        line.attr({
+                            x1,
+                            y1
+                        });
+                    }
+                }
+                if((parseFloat(line.attr('x2')) + (bbox.width / 2)) < parseFloat(line.attr('x1'))){
+
+                    if(useCase.parent().id === v.from.id){
+                        return;
+                    }
+                    a = parseFloat(line.attr('x2')) + bbox.width;
+                    if (arrowhead){
+                        arrowhead.transform(`translate(${a},${bbox.cy - 3}) rotate(${angleInDegrees} 5 5)`);
+                    }
+                    line.attr({
+                        x2: a,
+                        y2: bbox.cy
+                    });
+                }
+            });
+        }
 
         line.click(() => {
             selectedLine = line;
             relationShips.forEach((v) => {
                 v.line.attr({
                     stroke: 'black',
-                    strokeDasharray
+                    strokeDasharray: v.line.attr('strokeDasharray')
                 });
             });
            line.attr({stroke: 'red' ,   strokeDasharray});
         });
-
-        // arrowhead.remove();
-
 
         relationShips.push({
             from: v.from,
             to: v.to,
             arrowhead,
             line,
+            lineType,
             text
         });
     });
@@ -167,6 +177,13 @@ function getElementPoint(type, bbox){
     }
 }
 
+function validationForDiagrams(content, callback){
+    if (content.length === 0){
+        alert('No content');
+    }
+    callback()
+}
+
 function setDiagramsForModal(){
     templates.forEach((v) => {
         const span = document.createElement('span');
@@ -179,7 +196,9 @@ function setDiagramsForModal(){
             span.style.marginLeft = '15px';
             span.style.cursor = 'pointer';
             span.onclick = () => {
-                connectDiagramToElement(i.content, i.title);
+                validationForDiagrams(i.content, () => {
+                    connectDiagramToElement(i.content, i.title);
+                });
             }
             span.classList.add('d-block');
             document.querySelector('.modal-body').append(span);
@@ -189,8 +208,6 @@ function setDiagramsForModal(){
 
 function connectDiagramToElement(content, title){
     $('#diagramModal').modal('hide');
-    const parsed = Snap.parse(content);
-    const groupElements = parsed.selectAll("*:not(desc, defs)");
     createNewElements(content, title);
 }
 
@@ -228,16 +245,10 @@ function drawLineBetweenElements(element1, element2) {
     if (image1.attr('type') === imageType.SYSTEM || image2.attr('type') === imageType.SYSTEM){
         return;
     }
-
-
-    // Get the bounding boxes of the elements
     const bbox1 = element1.getBBox();
     const bbox2 = element2.getBBox();
-
-    // Calculate the center points of the elements
     const center1 = { x: bbox1.x, y: bbox1.y };
     const center2 = { x: bbox2.x, y: bbox2.y };
-
     if (selectedArrow instanceof HTMLElement) {
         selectedArrow = selectedArrow.getAttribute('type');
     }
@@ -255,17 +266,19 @@ function drawLineBetweenElements(element1, element2) {
     const line = svg.line(center1.x, center1.y, center2.x, center2.y);
     let arrowhead = null;
     let strokeDasharray = null;
+    let lineType = selectedArrow ? selectedArrow : imageType.ASSOCIATION;
 
-    // Draw a line connecting the centers of the elements
     line.attr({
         stroke: "black",
         strokeWidth: 2,
+
         strokeDasharray: selectedArrow === imageType.INCLUDE ?
             "5.3" : null,
-        lineType: selectedArrow
+        lineType: lineType ?? selectedArrow
     });
 
-    switch (line.attr('lineType') ? line.attr('lineType') : imageType.ASSOCIATION){
+
+    switch (lineType){
         case imageType.GENERALIZATION: {
             arrowheadPath =  "M0,0 L15,5 L0,13Z";
             const arrowheadCenterX = line.attr("x2");
@@ -289,7 +302,7 @@ function drawLineBetweenElements(element1, element2) {
                 fill: "none",
                 stroke: "black",
                 strokeWidth: '2px',
-                transform: `translate(${arrowheadCenterX},${arrowheadCenterY}) rotate(${Snap.deg(Math.atan2(line.attr("y2") - line.attr("y1"), line.attr("x2") - line.attr("x1")))} 5 5)`
+                transform: `translate(${arrowheadCenterX},${(arrowheadCenterY)}) rotate(${Snap.deg(Math.atan2(line.attr("y2") - line.attr("y1"), line.attr("x2") - line.attr("x1")))} 5 5)`
             });
             strokeDasharray = "5.3";
             break;
@@ -298,17 +311,15 @@ function drawLineBetweenElements(element1, element2) {
 
         }
     }
-
     relationShips.push({
         from: element1,
         to: element2,
         arrowhead: arrowhead,
+        lineType: selectedArrow,
         line,
         text
     });
-    // selectedItem = null;
     deleteLine();
-    // reDrawLines();
     return line;
 }
 
@@ -325,8 +336,16 @@ async function fetchDrawioTemplate(svgElements){
     convertToDrawioXml(svgElements);
 }
 
-function createXmlItem(group){
+function toBack(){
+    const group = svg.selectAll("g")[0];
+    group.prepend(contextItem);
+    renderCategories();
+}
 
+function toFront(){
+    const group = svg.selectAll("g")[0];
+    group.append(contextItem);
+    renderCategories();
 }
 
 function convertToDrawioXml(svgElements){
@@ -335,8 +354,7 @@ function convertToDrawioXml(svgElements){
     svgElements.forEach((e) => {
         if(e.type === 'g'){
             const image = e.children().find((v) => v.attr('type') !== imageType.TEXT);
-            const text = e.children().find((v) => v.attr('type') === imageType.TEXT);
-            if(!image.attr('type')){
+            if(!image){
                 return;
             }
             const mxCell = parsedXml.createElement('mxCell');
@@ -354,26 +372,26 @@ function convertToDrawioXml(svgElements){
                 case imageType.ACTOR: {
                     mxCell.setAttribute('style',
                         "shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;");
-                    mxCell.setAttribute('value', e.attr('name'));
+                    mxCell.setAttribute('value', e.attr('name') ? e.attr('name') : '');
                     mxCell.setAttribute('outlineConnect', 0);
                     break;
                 }
                 case imageType.USE_CASE: {
                     mxCell.setAttribute('style',
                         "ellipse;whiteSpace=wrap;html=1;");
-                    mxCell.setAttribute('value', e.attr('name'));
+                    mxCell.setAttribute('value', e.attr('name') ? e.attr('name') : '');
                     break;
                 }
                 case imageType.SYSTEM: {
                     mxCell.setAttribute('style',
                         "rounded=0;whiteSpace=wrap;html=1;");
-                    mxCell.setAttribute('value', e.attr('name'));
+                    mxCell.setAttribute('value', e.attr('name') ? e.attr('name') : '');
                     break;
                 }
                 case imageType.TEXT: {
                     mxCell.setAttribute('style',
                         'text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;');
-                    mxCell.setAttribute('value', e.attr('name'));
+                    mxCell.setAttribute('value', e.attr('name') ? e.attr('name') : '');
                     break;
                 }
                 default: {
@@ -410,17 +428,17 @@ function convertToDrawioXml(svgElements){
         mxCell.setAttribute('parent', 1);
         switch (v.line.attr('lineType')){
             case imageType.ASSOCIATION: {
-                mxCell.setAttribute('style', 'endArrow=classic;html=1;rounded=0;');
+                mxCell.setAttribute('style', 'endArrow=none;html=1;rounded=0;');
                 break;
             }
             case imageType.INCLUDE: {
                 mxCell.setAttribute('value', '&lt;&lt;include&gt;&gt;');
-                mxCell.setAttribute('style', 'html=1;verticalAlign=bottom;labelBackgroundColor=none;endArrow=open;endFill=0;dashed=1;rounded=0;exitX=0.5;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;');
+                mxCell.setAttribute('style', 'html=1;verticalAlign=bottom;labelBackgroundColor=none;endArrow=open;endFill=0;dashed=1;rounded=0;exitX=0.986;exitY=0.428;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;');
                 break;
             }
             case imageType.EXTEND: {
                 mxCell.setAttribute('value', '&lt;&lt;extent&gt;&gt;');
-                mxCell.setAttribute('style', 'html=1;verticalAlign=bottom;labelBackgroundColor=none;endArrow=open;endFill=0;dashed=1;rounded=0;exitX=0.5;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;');
+                mxCell.setAttribute('style', 'html=1;verticalAlign=bottom;labelBackgroundColor=none;endArrow=open;endFill=0;dashed=1;rounded=0;exitX=0.5;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;');
                 break;
             }
             case imageType.GENERALIZATION: {
@@ -432,14 +450,18 @@ function convertToDrawioXml(svgElements){
         mxCell.setAttribute('target', v.to.id);
         const mxGeometry = parsedXml.createElement('mxGeometry');
         const mxPoint1 = parsedXml.createElement('mxPoint');
-        mxPoint1.setAttribute('x', v.from.attr('x'));
-        mxPoint1.setAttribute('y', v.from.attr('y'));
-        mxPoint1.setAttribute('as', v.from.attr('sourcePoint'));
+        const bbox = v.from.getBBox();
+        mxPoint1.setAttribute('x', bbox.x);
+        mxPoint1.setAttribute('y', bbox.y);
+        mxPoint1.setAttribute('as', 'sourcePoint');
         const mxPoint2 = parsedXml.createElement('mxPoint');
-        mxPoint2.setAttribute('x', v.from.attr('x'));
-        mxPoint2.setAttribute('y', v.from.attr('y'));
-        mxPoint2.setAttribute('as', v.from.attr('targetPoint'));
+        mxPoint2.setAttribute('x', bbox.x);
+        mxPoint2.setAttribute('y', bbox.y);
+        mxPoint2.setAttribute('as', 'targetPoint');
         mxGeometry.setAttribute('as', 'geometry');
+        mxGeometry.setAttribute('width', '50');
+        mxGeometry.setAttribute('height', '50');
+        mxGeometry.setAttribute('relative', '1');
         mxGeometry.appendChild(mxPoint1);
         mxGeometry.appendChild(mxPoint2);
         mxCell.appendChild(mxGeometry);
@@ -466,7 +488,9 @@ function generateTemplates(){
                const li = document.createElement('li');
                li.innerText = i.title;
                li.onclick = () => {
-                   createNewElements(i.content, i.title);
+                   validationForDiagrams(i.content, () => {
+                       createNewElements(i.content, i.title, 'new');
+                   });
                }
                ul.append(li);
            });
@@ -480,13 +504,11 @@ function generateTemplates(){
 
 generateTemplates();
 
-// generate name for items
 function generateName(type){
     const selectedType = names.find((v) => v.type === type);
     return selectedType.name;
 }
 
-// save category
 function exportGroup(){
     groupSvg.children().forEach((v) => {
         if (v.attr('type') === imageType.TEXT){
@@ -504,7 +526,6 @@ function exportGroup(){
         svg: groupMarkup
     });
 
-    console.log('groupMarkup', groupMarkup);
 
     groupSvg.children().forEach((v) => {
         if (v.attr('type') === imageType.TEXT){
@@ -531,24 +552,36 @@ function createText(diagram){
     return text;
 }
 
-
-
 function showItems(svg){
     document.getElementById('rightSide').innerHTML = "";
     const diagram = svg.children().map(e => e).filter(v => v.type === 'g');
     diagram.forEach((v, i) => {
-            document.getElementById('rightSide').append(generateText(v));
+            document.getElementById('rightSide').append(generateText(v, 1));
             v.children().forEach((u) => {
-                document.getElementById('rightSide').append(generateText(u));
+                document.getElementById('rightSide').append(generateText(u, 2));
+                u.children().forEach((p) => {
+                    if(u.children().length === 2){
+                        return;
+                    }
+                    document.getElementById('rightSide').append(generateText(p, 3));
+                })
             });
         });
 }
 
-function generateText(v){
+function generateText(v, level){
     const p = document.createElement('p');
     p.innerText = `${v.attr('name') ?? ''}`;
-    if (v.type !== 'g'){
-        p.style.marginLeft = '15px';
+    if (level){
+        p.style.marginLeft = (level * 15) + 'px';
+    }
+    p.onclick = (e) => {
+        e.preventDefault();
+        selectedItem = null;
+        if (resizeHandle){
+            resizeHandle.remove();
+            rotateHandle.remove();
+        }
     }
     p.ondblclick = () => {
         const input = document.createElement('input');
@@ -568,72 +601,144 @@ function onConfirmText(event, input, p, item){
         item.children().find((v) => v.attr('type') === imageType.TEXT).attr({
             text: input.value
         });
-        // addAdditionalItems(
-        //     null,
-        //     currentDragItem.getAttribute('type'),
-        //     item
-        // );
         input.parentNode.replaceChild(p, input);
     }
 }
 
-// Function to toggle element selection
-function toggleSelection(element) {
-    let index = selectedElements.indexOf(element);
-    if (index === -1) {
-        selectedElements.push(element);
-        element.attr({ stroke: "blue" });
-    } else {
-        selectedElements.splice(index, 1);
-        element.attr({ stroke: "" });
+function createSystem(){
+    let system = svg.select('image[type="SYSTEM"]');
+    if (system){
+        system.parent().remove();
     }
+    system = svg.image('/images/box.svg', 0, 0, 0, 0);
+    system.attr({
+        opacity: 0.8,
+        rotate: 45,
+        draggable: true,
+        type: imageType.SYSTEM,
+        name: 'System'
+    });
+    const group = svg.group();
+    const text = svg.text(0, 0, 'System');
+    text.attr({
+        type: imageType.TEXT
+    });
+    system.attr({
+        'z-index': -1
+    });
+    group.add(system);
+    group.add(text);
+    contextMenuEvent(system);
+    group.attr({
+        name: 'System',
+        'z-index': -1
+    });
+    addEventToSvg(group);
+    svg.prepend(group);
 }
 
-function createNewElements(svgString, name){
+function findSystemResizeAndRemoveOthers(){
+    createSystem();
+    let image = svg.select('image[type="SYSTEM"]');
+    const actor = svg.select('image[type="ACTOR"]');
+    const main = svg.select('g[type="main"]');
+    const mainBbox = main.getBBox();
+    const actorBbox = actor.node ?  actor.getBBox() : 0;
+    if (image){
+        image.attr({
+            width: mainBbox.width + 100,
+            height: mainBbox.height + 100,
+            x: (mainBbox.x - 100 / 2),
+            y: (mainBbox.y - 100 / 2)
+        });
+        if (actor){
+            const parent = actor.parent();
+            actor.attr({
+                x: (mainBbox.x - 100 / 2) - actorBbox.width - 50
+            });
+            parent.children()[1].attr({
+                x: (mainBbox.x - 100 / 2) - actorBbox.width - 50
+            });
+        }
+        const systemBbox = image.getBBox();
+        const systemText = image.parent().children().find((v) => v.attr('type') === imageType.TEXT);
+        systemText.attr({
+            x: systemBbox.x2 - (systemBbox.width / 2) - 30,
+            y: systemBbox.y + 30
+        });
+    }
+
+    const useCases = svg.selectAll('image[type="USE_CASE"]');
+    useCases.forEach((u) => {
+       const parent = u.parent();
+        const coor = getCenterOfElement(parent.children()[0], parent.children()[1]);
+        parent.children()[1].attr({
+            x: coor.x,
+            y: coor.y
+        })
+    });
+    reDrawLines();
+}
+
+function createNewElements(svgString, name, newElement){
     const parsedElements = Snap.parse(svgString);
     const lineElements = parsedElements.selectAll("line");
     const groupElements = parsedElements.selectAll("g");
-    const textElements = parsedElements.selectAll("text");
+    const pathElements = parsedElements.selectAll("path");
+
     let group = svg.group().attr({
         name,
         rendered: false
     });
     groupElements.forEach((v) => {
+        if (Boolean(v.attr('rendered') || Boolean(v.attr('type')))){
+            return;
+        }
         addEventToSvg(v);
         group.add(v);
         const image = v.children().find((v) => v.attr('type') !== imageType.TEXT);
+        if (!image){
+            return;
+        }
+        if (image.attr('type') === imageType.SYSTEM){
+            image.parent().remove();
+        }
         contextMenuEvent(image);
     });
     lineElements.forEach((v) => {
-        console.log('wqeqweqwewqeqweqwe', v);
-        group.add((v));
+        group.add(v);
     });
 
+
+    for (let j = 0; j < lineElements.length; j++) {
+        for (let i = 0; i < pathElements.length; i++) {
+            const lineType = lineElements[j].attr('lineType')
+                ? lineElements[j].attr('lineType')
+                : lineElements[j].attr('linetype');
+            if(lineType){
+                lineElements[j].arrowhead = lineType === imageType.ASSOCIATION ? null : pathElements[i];
+                break;
+            }
+        }
+    }
+
     groupSvg.add(group);
-    console.log('lineElements', lineElements);
-    console.log('groupElements', groupElements);
-    const mainGroup = svg.selectAll('g[rendered="false"]')[0];
     reDrawExistLines(lineElements, groupElements);
-
-
-
-
-
     if (contextItem){
         const selectedX = +contextItem.attr("x") + +contextItem.attr("cx") || 0;
-        const selectedY = +contextItem.attr("y") || +contextItem.attr("cy") || 0;
         const bbox = contextItem.getBBox();
-        const images = mainGroup.selectAll("image");
+        const images = group.selectAll("image[type='ACTOR']");
         const diagram = svg.selectAll('g')[0].getBBox();
-        images.forEach((v) => {
-            if(v.attr('type') === imageType.ACTOR){
-                v.parent().remove();
-            }
-        });
-        mainGroup.children().forEach(function (element) {
-            element.attr({
-                side: mainGroup.getBBox().x - selectedX ? 'right' : 'left'
+        if (images.length >= 2){
+            images.forEach((v) => {
+                if(v.parent().attr('name') === contextItem.attr('name')){
+                    v.parent().remove();
+                }
             });
+        } else {
+            images[0].parent().remove();
+        }
+        group.children().forEach(function (element) {
             element.children().forEach(p => {
             const pBbox = p.getBBox();
             p.attr({
@@ -642,13 +747,89 @@ function createNewElements(svgString, name){
                 });
             });
         });
-        mainGroup.attr({
-            rendered: true
-        });
     }
+
+
+    const mainDiagram = svg.select("g[type='main']");
+    const bbox = mainDiagram.getBBox();
+    const lastDiagram = mainDiagram.children()[mainDiagram.children().length - 2];
+    let lastDiagramBbox = lastDiagram ? lastDiagram.getBBox() : 0;
+    const justAddedPattern = mainDiagram.children()[mainDiagram.children().length - 1];
+    const justAddedPatternBbox = justAddedPattern.getBBox();
+    group.children().forEach(function (element) {
+        element.children().forEach(p => {
+            const pBbox = p.getBBox();
+            if (lastDiagram && mainDiagram.children().length === 2){
+                p.attr({
+                    x: pBbox.x,
+                    y: pBbox.y
+                });
+                return;
+            }
+            if (!contextItem){
+                p.attr({
+                    x: pBbox.x + bbox.x + bbox.width,
+                    y: pBbox.y + bbox.y
+                });
+                return;
+            }
+
+            const place = checkPlace({
+                rightSideX: justAddedPatternBbox.x,
+                rightSideWidth: justAddedPatternBbox.width,
+                rightSideY: justAddedPatternBbox.y,
+                rightSideHeight: justAddedPatternBbox.height
+            });
+            if (mainDiagram.children().length > 2 && place){
+                p.attr({
+                    y: pBbox.y + lastDiagramBbox.y + (lastDiagramBbox.height / 2) + justAddedPatternBbox.height
+                });
+            } else {
+                p.attr({
+                    x:  (justAddedPatternBbox.width / 2) + pBbox.x,
+                });
+            }
+        });
+    });
+
     svg.append(groupSvg);
     showItems(svg);
     reDrawLines();
+    if (newElement && mainDiagram.children().length === 1){
+        findSystemResizeAndRemoveOthers();
+    } else if (!newElement){
+        findSystemResizeAndRemoveOthers();
+    }
+    const useCases = svg.selectAll('image[type="USE_CASE"]');
+    useCases.forEach((u) => {
+        const parent = u.parent();
+        const coor = getCenterOfElement(parent.children()[0], parent.children()[1]);
+        parent.children()[1].attr({
+            x: coor.x,
+            y: coor.y
+        })
+    });
+    group.attr({
+        rendered: true
+    });
+}
+
+function checkPlace(place){
+    let result = false;
+    svg.selectAll("svg > *").forEach(function (element) {
+        const bbox = element.getBBox();
+        const main = svg.select('g[type="main"]');
+        const system = svg.select('image[type="SYSTEM"]');
+        if ((bbox.x < place.rightSideX + place.rightSideWidth &&
+            bbox.x + bbox.width > place.rightSideX &&
+            bbox.y < place.rightSideY + place.rightSideHeight &&
+            bbox.y + bbox.height > place.rightSideY) &&
+            main.id !== element.id &&
+            system.parent().id !== element.id){
+            result = true;
+        }
+    });
+    return result;
 }
 
 function updateViewBox() {
@@ -671,7 +852,6 @@ function handleMouseWheel(evt) {
     const zoomFactor = Math.pow(1.1, delta); // Adjust the zoom speed
     scaleFactor *= zoomFactor;
     scaleFactor = Math.max(0.25, Math.min(2, scaleFactor)); // Limit the scale to a minimum and maximum value
-    const groups = svg.selectAll("g");
     updateViewBox();
 }
 
@@ -682,44 +862,49 @@ function reDrawExistLines(lines, groups){
         let image;
         groups.forEach((g) => {
             const groupSize = g.getBBox();
+
             image = g.children().find((v) => v.attr('type') !== imageType.TEXT);
             if (!image){
                 return;
             }
-            console.log(l.attr('x1'), groupSize.cx);
-            console.log(l.attr('y1'), groupSize.cy);
-            if (l.attr('x1') == groupSize.cx
-                && l.attr('y1') == groupSize.cy){
-                alert('qwe');
+            if (l.attr('x1').split(".")[0] == Math.round(Number(String(groupSize.cx).split(".")[0]))
+                && l.attr('y1').split(".")[0] == Math.round(Number(String(groupSize.cy).split(".")[0])) ||
+                (parseFloat(l.attr('x1').split(".")[0]) + groupSize.width) &&
+                l.attr('y1').split(".")[0] == Math.round(Number(String(groupSize.cy).split(".")[0]))){
                 if (contextItem){
-                    console.log('contextItem', contextItem);
                     from = image.attr('type') === imageType.ACTOR ? contextItem : g;
                 } else {
                     from = g;
                 }
-            } else if (l.attr('x2') == getElementPoint(image.attr('type'), groupSize).x
-                && l.attr('y2') == getElementPoint(image.attr('type'), groupSize).y){
-                to = g;
+            } else if (l.attr('x2').split(".")[0] == Math.round(Number(String(getElementPoint(image.attr('type'), groupSize).x).split(".")[0]))
+                && l.attr('y2').split(".")[0] == Math.round(Number(String(getElementPoint(image.attr('type'), groupSize).y).split(".")[0])) ||
+                (parseFloat(l.attr('x2').split(".")[0]) + groupSize.width)
+                && l.attr('y2').split(".")[0] == Math.round(Number(String(getElementPoint(image.attr('type'), groupSize).y).split(".")[0]))){
+                if (contextItem){
+                    to = image.attr('type') === imageType.ACTOR ? contextItem : g;
+                } else {
+                    to = g;
+                }
             }
+
         });
-        console.log('to             :', to);
-        console.log('from             :', from);
+
+        let lineType = l.attr('linetype') ? l.attr('linetype') : l.attr('lineType');
         relationShips.push({
             from,
             to,
             line: l,
-            lineType: l.attr('linetype'),
+            lineType,
             text: l,
-            arrowhead: l,
+            arrowhead: l.arrowhead ? l.arrowhead : null
         });
 
     });
-    console.log(relationShips);
+
     reDrawLines();
 }
 
 draggableImages.forEach((v) => {
-
     v.addEventListener('click', () => {
         if([
             imageType.ASSOCIATION,
@@ -747,6 +932,9 @@ draggableImages.forEach((v) => {
 });
 
 function contextMenuEvent(element){
+    if (!element){
+        return;
+    }
     element.node.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         contextItem = element.parent();
@@ -760,8 +948,15 @@ function contextMenuEvent(element){
 
 function addAdditionalItems(event, type, item){
     const svgSize = svgContainer.getBoundingClientRect();
-    let x = event.clientX - svgSize.left;
-    let y = event.clientY - svgSize.top;
+    let x;
+    let y;
+    if (event instanceof MouseEvent) {
+        x = event.clientX - svgSize.left;
+        y = event.clientY - svgSize.top;
+    } else {
+        x = event.x;
+        y = event.y;
+    }
     let image;
     if (item){
         image = item;
@@ -808,7 +1003,7 @@ function addAdditionalItems(event, type, item){
             group.add(image);
             group.add(text);
             group.attr({
-                name: 'Ellipse'
+                name: 'Use case'
             });
             const textCoor = getCenterOfElement(group, text);
             text.attr({
@@ -828,7 +1023,7 @@ function addAdditionalItems(event, type, item){
             group.add(image);
             group.add(text);
             group.attr({
-                name: 'Box',
+                name: 'System',
                 'z-index': -1
             });
             const bbox = group.getBBox();
@@ -877,7 +1072,6 @@ function getCenterOfElement(group, text) {
 }
 
 function addEventToSvg(item){
-    const svgSize = svgContainer.getBoundingClientRect();
     item.drag((dx, dy, x, y) => onMove(dx, dy, x, y, item),
         onStart, onEnd);
     item.click(() => {
@@ -885,9 +1079,7 @@ function addEventToSvg(item){
         deleteLine();
         generateDashedLines();
     });
-    item.mouseup(function (){
 
-    });
     item.mousedown(() => {
         drawLineBetweenElements(selectedItem, item);
     });
@@ -898,16 +1090,25 @@ window.addEventListener('keydown', (event) => {
     if ((event.keyCode === 8 && selectedItem)){
         relationShips.forEach((v) => {
             const element = selectedItem.getBBox();
-            if (v.line.attr('x1') == element.cx && v.line.attr('y1') == element.cy){
+            const elementWidth = Math.round(element.cx - (element.width / 2));
+            const lineX1 = Math.round(v.line.attr('x1'));
+            const lineX2 = Math.round(v.line.attr('x2'));
+            const lineY1 = Math.round(v.line.attr('y1'));
+            const lineY2 = Math.round(v.line.attr('y2'));
+            if ((lineX1 == Math.round(element.cx) && lineY1 == Math.round(element.cy))
+                || lineX1 == elementWidth && lineY1 == Math.round(element.cy)){
                 v.line.remove();
                 v.arrowhead ? v.arrowhead.remove() : null;
                 v.text ? v.text.remove() : null;
-                relationShips = relationShips.filter((l) => l.line.id !== v.line.id);
-            } else if (v.line.attr('x2') == element.cx && v.line.attr('y2') == element.cy){
+                relationShips = relationShips.filter((l) => l.line.id !== v.line.id
+                    && l.line.removed !== true);
+            } else if ((lineX2 == Math.round(element.cx) && lineY2 == Math.round(element.cy))
+                || lineX2 == elementWidth && lineY2 == Math.round(element.cy)){
                 v.line.remove();
                 v.arrowhead ? v.arrowhead.remove() : null;
                 v.text ? v.text.remove() : null;
-                relationShips = relationShips.filter((l) => l.line.id !== v.line.id);
+                relationShips = relationShips.filter((l) => l.line.id !== v.line.id
+                    && l.line.removed !== true);
             }
             v.line.attr({
                 stroke: 'black'
@@ -917,6 +1118,18 @@ window.addEventListener('keydown', (event) => {
         deleteLine();
         reDrawLines();
         showItems(svg);
+    }
+
+    if ((event.metaKey || event.ctrlKey) && event.key === "d" && selectedItem) {
+        event.preventDefault();
+        const image = selectedItem.children().find((v) => v.attr('type') !== imageType.TEXT);
+        const element = document.querySelector(`img[type="${image.attr('type')}"]`);
+        currentDragItem = element;
+        const bbox = selectedItem.getBBox();
+        addAdditionalItems({
+            x: bbox.x,
+            y: bbox.y + 120
+        }, currentDragItem.getAttribute('type'));
     }
 
     if((event.keyCode === 8 && selectedLine)){
@@ -935,74 +1148,46 @@ window.addEventListener('keydown', (event) => {
 });
 
 function generateDashedLines(){
-    const svgSize = svgContainer.getBoundingClientRect();
     if (!selectedItem){
         return;
     }
     selectedItem.attr({
         selected: true
     });
-    let bbox = selectedItem.getBBox();
-
-// Retrieve the dimensions and position of the group
-    const x = selectedItem.attr("x");
-    const y = selectedItem.attr("y");
-    const width = selectedItem.attr("width");
-    const height = selectedItem.attr("height");
-    dashedLine = svg.rect(x, y, width, height); // Example rectangle element
-    let transformMatrix = selectedItem.transform().globalMatrix;
-    dashedLine.attr({
-        stroke: "black",
-        strokeWidth: 2,
-        'fill-opacity': 0,
-        'z-index': -10,
-        transform: transformMatrix,
-        name: 'Dashed line',
-        strokeDasharray: "5 5" // Specifies a dash pattern of 5 units dash followed by 5 units gap
-    });
     if(resizeHandle){
         resizeHandle.remove();
         rotateHandle.remove();
     }
     enableRotateAndResize(selectedItem);
-
-
-    dashedLine.mousedown(function(event) {
-        event.preventDefault(); // Prevent default drag behavior
-
-        // Store initial properties
-        let initialX = event.clientX - svgSize.left;
-        let initialY = event.clientY - svgSize.top;
-        let initialWidth = selectedItem.attr("width");
-        let initialHeight = selectedItem.attr("height");
-        let initialRotation = selectedItem.transform().rotate;
-
-        details = {
-            initialX,
-            initialY,
-            initialWidth,
-            initialHeight,
-            initialRotation
-        }
-    });
 }
 
-// Attach event listeners
-
-
 function downloadXml(){
-    const svgElements = [svg.selectAll("g")[0]];
-
-    const allElements = svgElements[0].children()
+    const svgElements = svg.select("g[type='main']");
+    let allElements = svgElements.children()
         .filter((v) => v.children().length === 2);
 
-    const diagramElements = svgElements[0].children()
-        .filter((v) => v.children().length > 2)[0]
-        .children().filter((v) => v.children().length > 0)
-        .map((v) => v);
+    const isAdditionalExist = svgElements.children()
+        .filter((v) => v.children().length > 2);
+    if (isAdditionalExist){
+        let arrays = [];
+        svgElements.children()
+            .filter((v) => v.children().length > 2).forEach((p) => {
+            const elements = p.children().filter((v) => v.children().length > 0)
+                .map((v) => v);
+            arrays.push(...elements);
+            });
+        allElements.push(...arrays);
+    } else {
+        allElements.push(...svgElements.children());
+    }
 
-    allElements.push(...diagramElements);
-
+    const system = svg.select('image[type="SYSTEM"]');
+    if(!system){
+        allElements.unshift(system.parent());
+    } else {
+        allElements = allElements.filter((v) => v.id !== system.parent().id);
+        allElements.unshift(system.parent());
+    }
     fetchDrawioTemplate(allElements);
 }
 
@@ -1016,31 +1201,6 @@ function downloadFile(filename, content, type) {
     link.click(); // Programmatically trigger a click event on the link element
     document.body.removeChild(link); // Remove the link element from the document body
     URL.revokeObjectURL(url); // Release the URL object
-}
-
-function resizeAndRotate(event) {
-    let newX = event.clientX;
-    let newY = event.clientY;
-
-    // Calculate resize deltas
-    let deltaX = newX - details.initialX;
-    let deltaY = newY - details.initialY;
-
-    // Calculate new width and height
-    let newWidth = Math.max(parseFloat(details.initialWidth) + deltaX, 0);
-    let newHeight = Math.max(parseFloat(details.initialHeight) + deltaY, 0);
-
-    // Calculate rotation angle
-    let angle = Math.atan2(newY - details.initialY, newX - details.initialX) * (180 / Math.PI);
-
-    // Apply transformation attributes
-    selectedItem.attr({
-        x: details.initialX,
-        y: details.initialY,
-        width: newWidth,
-        height: newHeight,
-        transform: "rotate(" + (details.initialRotation + angle) + ")"
-    });
 }
 
 function deleteLine(){
@@ -1068,62 +1228,8 @@ svgContainer.addEventListener('click', function(event) {
     }
 });
 
-svgContainer.addEventListener('mouseup', (event) => {
-
-});
-
-let rotation = 0;
 let cx, cy;
 
-// Function to handle the mouse down event
-function handleMouseDown(event) {
-    if(selectedItem){
-        isDragging = true;
-
-        // Get the initial mouse position
-        let startX = event.clientX;
-        let startY = event.clientY;
-
-        // Get the center of the SVG element
-        let bbox = selectedItem.getBBox();
-        cx = bbox.cx;
-        cy = bbox.cy;
-
-        // Calculate the start rotation based on the current transformation
-        let matrix = selectedItem.transform().localMatrix;
-        startRotation = Snap.deg(Math.atan2(matrix.f, matrix.e));
-    }
-}
-
-// Function to handle the mouse move event
-function handleMouseMove(event, item) {
-    if (isDragging && selectedItem) {
-        // Get the current mouse position
-        let currentX = event.clientX;
-        let currentY = event.clientY;
-
-        // Calculate the angle between the initial mouse position and the current mouse position
-        let angle = Math.atan2(currentY - cy, currentX - cx);
-
-        // Calculate the new rotation based on the angle difference and the starting rotation
-        let newRotation = Snap.deg(angle) - startRotation;
-
-        deleteLine();
-        generateDashedLines();
-
-        // Apply the new rotation to the SVG element
-        selectedItem.transform("r" + newRotation + "," + cx + "," + cy);
-    }
-}
-
-function handleMouseUp() {
-    isDragging = false;
-    selectedItem = null;
-}
-
-
-
-// Function to handle drag start
 function onStart() {
     if(resizeHandle){
         resizeHandle.remove();
@@ -1132,27 +1238,8 @@ function onStart() {
     this.data('ot', this.transform().local);
 }
 
-function onWheel(event) {
-    event.preventDefault();
-    let delta = event.deltaY || event.wheelDelta;
-    if (delta > 0) {
-        // Zoom out
-        scaleFactor -= 0.1;
-    } else {
-        // Zoom in
-        scaleFactor += 0.1;
-    }
-
-    // Set a minimum and maximum scale factor to limit zoom level
-    scaleFactor = Math.min(Math.max(0.5, scaleFactor), 3);
-}
-
-// Function to handle drag move
 function onMove(dx, dy, x, y, image) {
     let t = image.data('ot');
-    const svgSize = svgContainer.getBoundingClientRect();
-    const width = image.attr("width");
-    const height = image.attr("height");
     image.attr({
         transform: t + (t ? "T" : "t") + [dx, dy],
     });
@@ -1160,17 +1247,12 @@ function onMove(dx, dy, x, y, image) {
 
 }
 
-// Function to handle drag end
 function onEnd() {
-    // Code to run when dragging ends (if needed)
     isDragging = false;
     selectedItem = null;
     reDrawLines();
 }
 
-// Enable rotation and resizing
-
-// Function to enable rotation and resizing
 function enableRotateAndResize(element) {
     const selectItem = element.children()
         .find(v => v.attr('type') !== imageType.TEXT);
@@ -1183,8 +1265,6 @@ function resizeHandleAdd(element, group){
     element.attr({
         selected: true
     });
-    const x = parseFloat(element.attr('x'));
-    const y = parseFloat(element.attr('y'));
     resizeHandle = svg.rect(bboxGroup.x2 - 8, bboxGroup.y2 - 8, 8, 8);
     const text = group.children().find(v => v.attr('type') === imageType.TEXT);
     rotateHandle = svg.image('/images/rotate-right.png',
@@ -1228,14 +1308,10 @@ function resizeHandleAdd(element, group){
     );
 }
 
-// Function to handle resizing start
 function onResizeStart(bbox, image) {
-    // resizeHandle.remove();
-    // rotateHandle.remove();
     image.data("ot", bbox);
 }
 
-// Function to handle resizing move
 function onResizeMove(dx, dy, element, text) {
     let bbox = element.data("ot");
     let newWidth = bbox.width + dx;
@@ -1260,7 +1336,6 @@ function onResizeMove(dx, dy, element, text) {
                 break;
             }
             case imageType.SYSTEM: {
-                const coor = getCenterOfElement(element, text);
                 text.attr({
                     x: parseFloat(element.attr('x')) + (parseFloat(element.attr('width')) / 2) - 30,
                     y: parseFloat(element.attr('y')) + 40
@@ -1283,10 +1358,8 @@ function onResizeMove(dx, dy, element, text) {
     }
 }
 
-// Function to handle resizing end
 function onResizeEnd() {
     resizeHandle.remove();
-    // Code to run when resizing ends (if needed)
 }
 document.addEventListener("click", () => {
     contextMenu.classList.add("hidden");
